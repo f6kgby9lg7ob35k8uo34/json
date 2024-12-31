@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSONBin Encryption App</title>
+    <title>JSONBin Decryptor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -63,52 +63,49 @@
 </head>
 <body>
     <div class="container">
-        <h1>JSONBin Encryption App v1</h1>
-        <label for="masterKey">JSONBin Master Key:</label>
-        <input type="text" id="masterKey" placeholder="Enter your JSONBin master key" required>
+        <h1>JSONBin Decryptor v2</h1>
+        <label for="binUrl">JSONBin URL:</label>
+        <input type="text" id="binUrl" placeholder="Enter your JSONBin URL" required>
 
-        <label for="userMessage">Your Message:</label>
-        <textarea id="userMessage" rows="5" placeholder="Enter your message here"></textarea>
+        <label for="privateKey">Encryption Key:</label>
+        <input type="text" id="privateKey" placeholder="Enter your encryption key" required>
 
-        <button id="submitBtn">Encrypt and Store</button>
+        <button id="fetchBtn">Fetch and Decrypt</button>
 
         <div id="result" class="result" style="display:none;"></div>
     </div>
 
     <script>
-        async function encryptMessage(message) {
-            const encoder = new TextEncoder();
-            const key = await window.crypto.subtle.generateKey(
-                { name: "AES-GCM", length: 256 },
+        async function importKey(base64Key) {
+            const rawKey = Uint8Array.from(atob(base64Key), c => c.charCodeAt(0));
+            return window.crypto.subtle.importKey(
+                "raw",
+                rawKey,
+                "AES-GCM",
                 true,
-                ["encrypt", "decrypt"]
+                ["decrypt"]
             );
-
-            const iv = window.crypto.getRandomValues(new Uint8Array(12));
-
-            const encrypted = await window.crypto.subtle.encrypt(
-                { name: "AES-GCM", iv },
-                key,
-                encoder.encode(message)
-            );
-
-            const exportedKey = await window.crypto.subtle.exportKey("raw", key);
-
-            return {
-                encryptedMessage: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-                iv: btoa(String.fromCharCode(...iv)),
-                key: btoa(String.fromCharCode(...new Uint8Array(exportedKey)))
-            };
         }
 
-        async function storeEncryptedData(masterKey, data) {
-            const response = await fetch("https://api.jsonbin.io/v3/b", {
-                method: "POST",
+        async function decryptMessage(encryptedMessage, iv, key) {
+            const decoder = new TextDecoder();
+            const encryptedData = Uint8Array.from(atob(encryptedMessage), c => c.charCodeAt(0));
+            const ivArray = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: ivArray },
+                key,
+                encryptedData
+            );
+
+            return decoder.decode(decrypted);
+        }
+
+        async function fetchEncryptedData(url, masterKey) {
+            const response = await fetch(url, {
                 headers: {
-                    "Content-Type": "application/json",
                     "X-Master-Key": masterKey
-                },
-                body: JSON.stringify(data)
+                }
             });
 
             if (!response.ok) {
@@ -118,27 +115,30 @@
             return response.json();
         }
 
-        document.getElementById("submitBtn").addEventListener("click", async () => {
-            const masterKey = document.getElementById("masterKey").value.trim();
-            const userMessage = document.getElementById("userMessage").value.trim();
+        document.getElementById("fetchBtn").addEventListener("click", async () => {
+            const binUrl = document.getElementById("binUrl").value.trim();
+            const privateKey = document.getElementById("privateKey").value.trim();
             const resultDiv = document.getElementById("result");
 
-            if (!masterKey || !userMessage) {
-                alert("Please provide both the master key and a message.");
+            if (!binUrl || !privateKey) {
+                alert("Please provide both the URL and the encryption key.");
                 return;
             }
 
             try {
-                const { encryptedMessage, iv, key } = await encryptMessage(userMessage);
+                const encryptedData = await fetchEncryptedData(binUrl, privateKey);
+                const key = await importKey(privateKey);
 
-                const jsonResponse = await storeEncryptedData(masterKey, { encryptedMessage, iv });
+                const message = await decryptMessage(
+                    encryptedData.record.encryptedMessage,
+                    encryptedData.record.iv,
+                    key
+                );
 
                 resultDiv.style.display = "block";
                 resultDiv.innerHTML = `
-                    <p><strong>Data stored successfully!</strong></p>
-                    <p>JSONBin URL: <a href="${jsonResponse.metadata.id}" target="_blank">${jsonResponse.metadata.id}</a></p>
-                    <p><strong>Encryption Key:</strong> ${key}</p>
-                    <p style="color: red;">Store the encryption key securely. It will not be shown again!</p>
+                    <p><strong>Decrypted Message:</strong></p>
+                    <p>${message}</p>
                 `;
             } catch (error) {
                 alert(`Error: ${error.message}`);
