@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSONBin Encryption and Decryption App</title>
+    <title>JSONBin Encryption and Decryption App v1</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -187,6 +187,7 @@
         }
 
         async function fetchEncryptedData(binId, masterKey) {
+            method: "GET",
             const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
             const response = await fetch(url, {
                 headers: {
