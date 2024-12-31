@@ -78,8 +78,8 @@
 
     <div class="container">
         <h1>Fetch and Decrypt Message</h1>
-        <label for="binUrl">JSONBin URL:</label>
-        <input type="text" id="binUrl" placeholder="Enter your JSONBin URL" required>
+        <label for="binId">JSONBin Bin ID:</label>
+        <input type="text" id="binId" placeholder="Enter your JSONBin Bin ID" required>
 
         <label for="privateKey">Encryption Key:</label>
         <input type="text" id="privateKey" placeholder="Enter your encryption key" required>
@@ -151,7 +151,7 @@
                 resultDiv.style.display = "block";
                 resultDiv.innerHTML = `
                     <p><strong>Data stored successfully!</strong></p>
-                    <p>JSONBin URL: <a href="${jsonResponse.metadata.id}" target="_blank">${jsonResponse.metadata.id}</a></p>
+                    <p>JSONBin Bin ID: <strong>${jsonResponse.metadata.id}</strong></p>
                     <p><strong>Encryption Key:</strong> ${key}</p>
                     <p style="color: red;">Store the encryption key securely. It will not be shown again!</p>
                 `;
@@ -186,7 +186,8 @@
             return decoder.decode(decrypted);
         }
 
-        async function fetchEncryptedData(url, masterKey) {
+        async function fetchEncryptedData(binId, masterKey) {
+            const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
             const response = await fetch(url, {
                 headers: {
                     "X-Master-Key": masterKey
@@ -201,17 +202,17 @@
         }
 
         document.getElementById("decryptFetchBtn").addEventListener("click", async () => {
-            const binUrl = document.getElementById("binUrl").value.trim();
+            const binId = document.getElementById("binId").value.trim();
             const privateKey = document.getElementById("privateKey").value.trim();
             const resultDiv = document.getElementById("decryptResult");
 
-            if (!binUrl || !privateKey) {
-                alert("Please provide both the URL and the encryption key.");
+            if (!binId || !privateKey) {
+                alert("Please provide both the Bin ID and the encryption key.");
                 return;
             }
 
             try {
-                const encryptedData = await fetchEncryptedData(binUrl, privateKey);
+                const encryptedData = await fetchEncryptedData(binId, privateKey);
                 const key = await importKey(privateKey);
 
                 const message = await decryptMessage(
